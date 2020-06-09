@@ -18,6 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <activity android:name=".OnDraw"></activity>
         <activity android:name=".SettingNotification" />
         <activity android:name=".MainSetting"
             android:theme="@style/PreferncesTheme"/>

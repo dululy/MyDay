@@ -5,11 +5,13 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.loader.content.CursorLoader;
 
 import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -31,6 +33,7 @@ import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.VideoView;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -43,6 +46,9 @@ import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
+import org.apache.commons.codec.net.URLCodec;
+
+import java.io.File;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -58,17 +64,19 @@ public class WorkActivity extends AppCompatActivity {
     private ImageButton file_btn;
     private Button save_btn;
     private ImageView file_img;
+    private VideoView file_video;
+
     public String content;
     private String weekDay,day,month,year,emoticon,weather;
-    private String encryt_day,encryt_month,encryt_year,encryt_content,encryt_emoticon,encryt_weather,fileURI;
+    private String encrypt_day,encrypt_month,encrypt_year,encrypt_content,encrypt_emoticon,encrypt_weather,fileURI;
     private static final String KEY = "aes256-test-key!!";
+    private int num;
 
     private Uri filePath;
 
     //firebase 연결
     final FirebaseDatabase firebaseDatabase = FirebaseDatabase.getInstance();
     DatabaseReference databaseReference = firebaseDatabase.getReference();
-
 
 
     @Override
@@ -138,22 +146,29 @@ public class WorkActivity extends AppCompatActivity {
                                 break;
 
                             case R.id.camera:
-                                Toast.makeText(getApplication(), "사진촬영", Toast.LENGTH_SHORT).show();
+                                Intent takepictureintent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                                startActivityForResult(takepictureintent, 0);
+                                file_img.setImageURI(takepictureintent.getData());
                                 break;
 
                             case R.id.movie:
-                                Toast.makeText(getApplication(), "동영상 첨부", Toast.LENGTH_SHORT).show();
+                                checkSelfPermission();
+                                Intent movieintent = new Intent(); //기기 기본 갤러리 접근
+                                movieintent.setType(MediaStore.Images.Media.CONTENT_TYPE); //구글 갤러리 접근
+                                movieintent.setType("video/*");
+                                movieintent.setAction(Intent.ACTION_GET_CONTENT);
+                                movieintent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                                startActivityForResult(movieintent, 102);
                                 break;
 
                             case R.id.draw:
-                                Toast.makeText(getApplication(), "그림그리기", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getApplication(), "그리기모드", Toast.LENGTH_SHORT).show();
                                 break;
                         }
                         return false;
 
                     }
                 });
-
                 popup.show();
             }
         });
@@ -177,34 +192,30 @@ public class WorkActivity extends AppCompatActivity {
 
                 //암호화
                 try {
-                    AES256Util AES256Util  = new AES256Util();
-                    encryt_day = AES256Util.encrypt(day);
-                    encryt_month = AES256Util.encrypt(month);
-                    encryt_year = AES256Util.encrypt(year);
-                    encryt_content = AES256Util.encrypt(content);
-                    encryt_weather = AES256Util.encrypt(weather);
-                    encryt_emoticon = AES256Util.encrypt(emoticon);
+                    AES256Util AES256Util  = new AES256Util(KEY);
+                    encrypt_day = AES256Util.aesEncode(day);
+                    encrypt_month = AES256Util.aesEncode(month);
+                    encrypt_year = AES256Util.aesEncode(year);
+                    encrypt_content = AES256Util.aesEncode(content);
+                    encrypt_weather = AES256Util.aesEncode(weather);
+                    encrypt_emoticon = AES256Util.aesEncode(emoticon);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
-                //storage에 저장
-//                uploadFile();
-
                 //db에 저장
                 String tokenID = FirebaseInstanceId.getInstance().getToken();
                 // Firebase Database 에 등록된 Key 값
 
                 if (!TextUtils.isEmpty(tokenID)) {
-                    UserDiaries userDiaries = new UserDiaries(encryt_day,encryt_month,encryt_year,encryt_content,encryt_weather,encryt_emoticon,"");
+                    UserDiaries userDiaries = new UserDiaries(encrypt_day,encrypt_month,encrypt_year,encrypt_content,encrypt_weather,encrypt_emoticon);
                     databaseReference.child("User-Diaries").child(tokenID).push().setValue(userDiaries);
-
-                    finish();
-                    Intent main = new Intent(getApplicationContext(), MainActivity.class);
-                    startActivity(main);
                 }
+                //storage에 저장
+                uploadFile();
 
-
+                finish();
+                Intent main = new Intent(getApplicationContext(), MainActivity.class);
+                startActivity(main);
             }
         });
 
@@ -264,54 +275,57 @@ public class WorkActivity extends AppCompatActivity {
         }
     }
 
-    //upload the file
-//    private void uploadFile() {
-//        //업로드할 파일이 있으면 수행
-//        if (filePath != null) {
-//            //업로드 진행 Dialog 보이기
-//            final ProgressDialog progressDialog = new ProgressDialog(this);
-//            progressDialog.setTitle("업로드중...");
-//            progressDialog.show();
-//
-//            //storage
-//            FirebaseStorage storage = FirebaseStorage.getInstance();
-//
-//            //Unique한 파일명을 만들자.
-//            SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMHH_mmss");
-//            Date now = new Date();
-//            String filename = formatter.format(now) + ".png";
-//            //storage 주소와 폴더 파일명을 지정해 준다.
-//            StorageReference storageRef = storage.getReferenceFromUrl("gs://yourStorage.appspot.com").child("images/" + filename);
-//            //올라가거라...
-//            storageRef.putFile(filePath)
-//                    //성공시
-//                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-//                        @Override
-//                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-//                            progressDialog.dismiss(); //업로드 진행 Dialog 상자 닫기
-//                            Toast.makeText(getApplicationContext(), "업로드 완료!", Toast.LENGTH_SHORT).show();
-//                        }
-//                    })
-//                    //실패시
-//                    .addOnFailureListener(new OnFailureListener() {
-//                        @Override
-//                        public void onFailure(@NonNull Exception e) {
-//                            progressDialog.dismiss();
-//                            Toast.makeText(getApplicationContext(), "업로드 실패!", Toast.LENGTH_SHORT).show();
-//                        }
-//                    })
-//                    //진행중
-//                    .addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
-//                        @Override
-//                        public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
-//                            @SuppressWarnings("VisibleForTests") //이걸 넣어 줘야 아랫줄에 에러가 사라진다. 넌 누구냐?
-//                                    double progress = (100 * taskSnapshot.getBytesTransferred()) /  taskSnapshot.getTotalByteCount();
-//                            //dialog에 진행률을 퍼센트로 출력해 준다
-//                            progressDialog.setMessage("Uploaded " + ((int) progress) + "% ...");
-//                        }
-//                    });
-//        }
-//    }
+    private void uploadFile() {
+        //업로드할 파일이 있으면 수행
+        if (filePath != null) {
+            //업로드 진행 Dialog 보이기
+            final ProgressDialog progressDialog = new ProgressDialog(this);
+            progressDialog.setTitle("업로드중...");
+            progressDialog.show();
+
+            //storage
+            FirebaseStorage storage = FirebaseStorage.getInstance();
+            //사용자별 token값 받아오기
+            String tokenID = FirebaseInstanceId.getInstance().getToken();
+
+            //날짜로 파일명 생성
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
+            Date now = new Date();
+            String filename = formatter.format(now) + ".png";
+            //storage 주소와 폴더 파일명을 지정해 준다.
+            StorageReference storageRef = storage.getReferenceFromUrl("gs://myday-b6bcc.appspot.com/").child(tokenID).child(filename);
+            //올라가거라...
+            storageRef.putFile(filePath)
+                    //성공시
+                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                        @Override
+                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                            progressDialog.dismiss(); //업로드 진행 Dialog 상자 닫기
+                            Toast.makeText(getApplicationContext(), "업로드 완료!", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    //실패시
+                    .addOnFailureListener(new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            progressDialog.dismiss();
+                            Toast.makeText(getApplicationContext(), "업로드 실패!", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    //진행중
+                    .addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+                        @Override
+                        public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
+                            @SuppressWarnings("VisibleForTests") //이걸 넣어 줘야 아랫줄에 에러가 사라진다. 넌 누구냐?
+                                    double progress = (100 * taskSnapshot.getBytesTransferred()) /  taskSnapshot.getTotalByteCount();
+                            //dialog에 진행률을 퍼센트로 출력해 준다
+                            progressDialog.setMessage("Uploaded " + ((int) progress) + "% ...");
+                        }
+                    });
+        } else {
+            Toast.makeText(getApplicationContext(), "파일을 먼저 선택하세요.", Toast.LENGTH_SHORT).show();
+        }
+    }
 
 
     //뒤로가기시
