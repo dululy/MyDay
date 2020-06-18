@@ -39,8 +39,9 @@ public class MainSetting extends AppCompatActivity {
 
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-                startActivity(intent);
+                Intent main = new Intent(getApplicationContext(), MainActivity.class);
+                startActivity(main);
+                finish();
             }
         });
 
@@ -58,10 +59,20 @@ public class MainSetting extends AppCompatActivity {
             public void onClick(View view) {
                 Intent intent = new Intent(getApplicationContext(), HomePage.class);
                 startActivity(intent);
+                finish();
             }
         });
 
     }
+
+    //뒤로가기시
+    @Override
+    public void onBackPressed() {
+        Intent main = new Intent(getApplicationContext(), MainActivity.class);
+        startActivity(main);
+        finish();
+    }
+
 }
 //public class MainSetting extends PreferenceActivity implements Preference.OnPreferenceClickListener {
 //

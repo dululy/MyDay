@@ -19,7 +19,6 @@
         android:theme="@style/AppTheme">
 
         <activity android:name=".OnDraw"></activity>
-        <activity android:name=".SettingNotification" />
         <activity android:name=".MainSetting"
             android:theme="@style/PreferncesTheme"/>
         <activity android:name=".WorkActivity"/>
@@ -40,6 +39,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ShowList" />
     </application>
 
 </manifest>

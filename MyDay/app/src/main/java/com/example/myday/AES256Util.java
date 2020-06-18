@@ -17,6 +17,7 @@ import org.apache.commons.codec.binary.Base64;
 public class AES256Util {
     private String iv;
     private Key keySpec;
+    public static final String KEY = "aes256-test-key!!";
 
     public AES256Util(String key)throws UnsupportedEncodingException {
         this.iv = key.substring(0,16);
